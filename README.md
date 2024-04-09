@@ -5,6 +5,14 @@ Extended Crystallographic Information File, which allows you to put multiple cry
 
 This Python module provides some tools for handling the conversion between ECIF files and pandas dataframes. ECIF files are a file format used for storing formatted crystal structure information, while pandas dataframes are a data structure used for data analysis.
 
+# Installation
+
+You can install the `pyecif` module via pip. To do this, you need to run the following command in your terminal:
+
+```bash
+pip install pyecif
+```
+
 
 ## Features
 
@@ -19,9 +27,7 @@ This Python module provides some tools for handling the conversion between ECIF 
 First, you need to have a pandas dataframe that contains some pymatgen Structure objects. Then, you can use the `WriteEcif` function to write this dataframe to an ECIF file. For example:
 
 ```python
-import pandas as pd
-from pymatgen.core.structure import Structure
-from ECIFPandasTools import WriteEcif
+from pyecif import WriteEcif
 
 # Assume you have a dataframe named df, which contains a column of Structure objects named 'CIF'
 WriteEcif(df, 'output.ecif', cifColName='CIF', properties=df.columns)
@@ -30,18 +36,14 @@ WriteEcif(df, 'output.ecif', cifColName='CIF', properties=df.columns)
 Then, you can use the `LoadEcif` function to load data from the ECIF file into a new dataframe. For example:
 
 ```python
-from ECIFPandas
-
-Tools
-
- import LoadEcif
+from pyecif import LoadEcif
 
 df = LoadEcif('output.ecif', cifColName='CIF')
 ```
 
 Note that both of these functions accept some optional parameters for specifying the names of certain columns in the dataframe, as well as additional properties to be included in the ECIF file.
 
-Below is a snapshot of our data frame (df). It contains the fields ID, exfoliation energy (exfoliation_en) and crystal structure (CIF).
+Below is a snapshot of our data frame (`df`). It contains the fields ID, exfoliation energy (exfoliation_en) and crystal structure (CIF).
 
 | ID | exfoliation_en | CIF |
 | --- | --- | --- |
@@ -58,7 +60,7 @@ Below is a snapshot of our data frame (df). It contains the fields ID, exfoliati
 | mb-jdft2d-636 | 63.564333 | [[ 0.70613488 -1.21109143  1.03195663] Co, [ 2... |
 
 
-To better understand the contents of the CIF field, we can look at the details of `df['CIF'][0]`. This is an example describing the position of the elements Hf, Si and Te in the crystal structure:
+To better understand the contents of the CIF field, we can look at the details of `df['CIF'][0]`. This is an example describing the position of the elements Hf, Si and Te in the crystal structure, which is the `pymatgen.core.Structure` class:
 
 ```python
 Structure Summary
