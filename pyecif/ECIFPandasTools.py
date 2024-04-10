@@ -56,7 +56,7 @@ def WriteEcif(df, out, idName='ID', cifColName='CIF', properties=None):
                 else:
                     cifblock.SetProp(prop, str(cell_value))
 
-            cif_block = cifblock.GetBlock()
+            cif_block = cifblock.GetBlock(cifColName)
             num_cif_block = re.sub(r'(<.*?>)(.*?)(?=\s|$)', fr'\1 ({num})', cif_block)
             file.write(num_cif_block)
             file.write('\n\n$$$$\n\n')
@@ -76,7 +76,7 @@ def LoadEcif(ecif_file, idName='ID', cifColName='CIF'):
     for line in lines:
         if line.strip() == '$$$$':
             cifblock = CifBlock()
-            cifblock.AddBlock('\n'.join(block))
+            cifblock.AddBlock('\n'.join(block), cifColName=cifColName)
             block = []
             row = _CifBlockToRow(cifblock, cifColName)
             df = df._append(row, ignore_index=True)
@@ -123,10 +123,10 @@ class CifBlock:
     def GetCif(self):
         return self._cif
     
-    def GetBlock(self):
+    def GetBlock(self, cifColName='CIF'):
         block = []
         block.append('<ID>\n%s\n' % self._props['_Name'])
-        block.append('<CIF>')
+        block.append(f'<{cifColName}>')
         for line in self._cif:
             block.append(line)
         for key, value in self._props.items():
@@ -140,16 +140,16 @@ class CifBlock:
         cif_parser = CifParser.from_str(cif_str)
         return cif_parser.get_structures(on_error='ignore')[0]
 
-    def AddBlock(self, block):
+    def AddBlock(self, block, cifColName='CIF'):
         pattern = re.compile(r'<(.*?)>\s\(\d+\)\n(.*?)(?=<|$)', re.DOTALL)
         matches = pattern.findall(block)
 
         # 创建一个字典来存储key-value对
         block_dict = {key: value.strip() for key, value in matches}
 
-        self._cif = block_dict['CIF'].split('\n')
+        self._cif = block_dict[cifColName].split('\n')
         for key, value in block_dict.items():
-            if key != 'CIF':
+            if key != cifColName:
                 self._props[key] = value
 
     def WriteCif(self, filename):
@@ -173,7 +173,5 @@ if __name__ == '__main__':
         'prop2': [3, 4]
     })
 
-    # 写入ECIF文件
     WriteEcif(df, 'test.ecif', properties=['prop1', 'prop2'])
     df = LoadEcif('test.ecif')
-    df

@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name='pyecif',
-    version='0.1',
+    version='0.1.1',
     packages=find_packages(),
     include_package_data=True,
     description='ECIF file format tools for Python.',

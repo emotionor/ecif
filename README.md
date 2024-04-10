@@ -79,3 +79,7 @@ PeriodicSite: Si3 (Si) (1.493, 1.493, 5.156) [0.4072, 0.4072, 0.1888]
 PeriodicSite: Te4 (Te) (3.327, 1.493, 8.659) [0.9072, 0.4072, 0.3171]
 PeriodicSite: Te5 (Te) (1.493, 3.327, 1.652) [0.4072, 0.9072, 0.06049]
 ```
+
+# Matbench
+
+Matbench is a benchmark dataset for materials science. You can easily obtain the ECIF format of the Matbench dataset using the example script `scripts/get_matbench_jdft2d.py`.
