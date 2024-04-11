@@ -5,19 +5,30 @@ import numpy as np
 import pandas as pd
 from pymatgen.core.structure import Structure
 from pymatgen.io.cif import CifParser, CifWriter
+from multiprocessing import Pool
+import gemmi
+from tqdm import tqdm
 
 
 def WriteEcif(df, out, idName='ID', cifColName='CIF', properties=None):
     """
     Write a pandas dataframe to an ECIF file
     """
-
+    
     if cifColName not in df.columns:
         raise ValueError("No column named %s in dataframe" % cifColName)
     
+    cifblock = CifBlock()
+
     for cif in df[cifColName]:
-        if not isinstance(cif, Structure):
-            raise ValueError("Column %s is not a list of pymatgen Structures" % cifColName)
+        if isinstance(cif, gemmi.SmallStructure):
+            processStructure = cifblock.SetCifFromGemmicif
+            break
+        elif isinstance(cif, Structure):
+            processStructure = cifblock.SetCifFromPymatgen
+            break
+        else:
+            raise ValueError("CIF column must contain either pymatgen or gemmi structures")
     
     if properties is None:
         properties = []
@@ -35,7 +46,7 @@ def WriteEcif(df, out, idName='ID', cifColName='CIF', properties=None):
     with open(out, 'w') as file:
 
         for num, row in enumerate(df.iterrows()):
-            cifblock = CifBlock()
+            
             if idName is not None:
                 if idName == 'ID':
                     cifblock.SetProp('_Name', str(row[0]))
@@ -43,7 +54,7 @@ def WriteEcif(df, out, idName='ID', cifColName='CIF', properties=None):
                     cifblock.SetProp('_Name', str(row[1][idName]))
 
             structure = row[1][cifColName]
-            cifblock.AddCifFromPymatgen(structure)
+            processStructure(structure)
 
             for prop in properties:
                 cell_value = row[1][prop]
@@ -60,10 +71,8 @@ def WriteEcif(df, out, idName='ID', cifColName='CIF', properties=None):
             num_cif_block = re.sub(r'(<.*?>)(.*?)(?=\s|$)', fr'\1 ({num})', cif_block)
             file.write(num_cif_block)
             file.write('\n\n$$$$\n\n')
-        
 
-
-def LoadEcif(ecif_file, idName='ID', cifColName='CIF'):
+def LoadEcif(ecif_file, idName='ID', cifColName='CIF', type='gemmi'):
     """
     Load ECIF file into a pandas dataframe
     """
@@ -73,16 +82,21 @@ def LoadEcif(ecif_file, idName='ID', cifColName='CIF'):
     
     df = pd.DataFrame()
     block = []
+    rows = []
+    cifblocks = []
     for line in lines:
-        if line.strip() == '$$$$':
-            cifblock = CifBlock()
-            cifblock.AddBlock('\n'.join(block), cifColName=cifColName)
+        if line.strip() == '$$$$':   
+            cifblock = CifBlock()   
+            cifblock.SetBlock('\n'.join(block), cifColName=cifColName)
             block = []
-            row = _CifBlockToRow(cifblock, cifColName)
-            df = df._append(row, ignore_index=True)
-
+            cifblocks.append(cifblock)
+            row = _CifBlockToRow(cifblock, cifColName, type=type)
+            rows.append(row)
         else:
             block.append(line)
+
+    df = pd.DataFrame(rows)
+
     if idName in df.columns:
         df.set_index(idName, inplace=True)
 
@@ -92,17 +106,21 @@ def LoadEcif(ecif_file, idName='ID', cifColName='CIF'):
 
     return df
 
-def _CifBlockToRow(cifblock, cifColName):
+def _CifBlockToRow(cifblock, cifColName, type='gemmi'):
     row = {}
     for key, value in cifblock._props.items():
         row[key] = value
-    row[cifColName] = cifblock.GetPymatgenStructure()
+    if type == 'gemmi':
+        row[cifColName] = cifblock.GetGemmicif()
+    elif type == 'pymatgen':
+        row[cifColName] = cifblock.GetPymatgenStructure()
     return row
 
 class CifBlock:
     def __init__(self):
         self._props = {}
         self._cif = []
+        self.pattern = re.compile(r'<(.*?)>\s\(\d+\)\n(.*?)(?=<|$)', re.DOTALL)
     
     def SetProp(self, key, value):
         self._props[key] = value
@@ -110,19 +128,23 @@ class CifBlock:
     def GetProp(self, key):
         return self._props[key]
     
-    def AddCifLine(self, line):
-        self._cif.append(line)
-    
-    def AddCifFromPymatgen(self, structure):
-        cif_writer = CifWriter(structure)
-        cif_string = cif_writer.__str__()
-        cif_string = cif_string.split('\n')
-        for line in cif_string:
-            self._cif.append(line)   
+    def SetCifFromString(self, string):
+        self._cif = string.split('\n')
 
     def GetCif(self):
         return self._cif
-    
+
+    def SetBlock(self, block, cifColName='CIF'):
+        
+        matches = self.pattern.findall(block)
+
+        block_dict = {key: value.strip() for key, value in matches}
+
+        self._cif = block_dict[cifColName].split('\n')
+        for key, value in block_dict.items():
+            if key != cifColName:
+                self._props[key] = value
+
     def GetBlock(self, cifColName='CIF'):
         block = []
         block.append('<ID>\n%s\n' % self._props['_Name'])
@@ -134,23 +156,31 @@ class CifBlock:
                 block.append('<%s>\n%s' % (key, value))
         block_str = '\n'.join(block)
         return block_str
-    
+
+    def SetCifFromPymatgen(self, structure):
+        cif_writer = CifWriter(structure)
+        cif_string = cif_writer.__str__()
+        cif_string = cif_string.split('\n')
+        self._cif = []
+        for line in cif_string:
+            self._cif.append(line)   
+
+    def SetCifFromGemmicif(self, structure):
+        cif_string = structure.make_cif_block().as_string()
+        cif_string = cif_string.split('\n')
+        self._cif = []
+        for line in cif_string:
+            self._cif.append(line)
+
     def GetPymatgenStructure(self):
         cif_str = '\n'.join(self._cif)
         cif_parser = CifParser.from_str(cif_str)
         return cif_parser.get_structures(on_error='ignore')[0]
-
-    def AddBlock(self, block, cifColName='CIF'):
-        pattern = re.compile(r'<(.*?)>\s\(\d+\)\n(.*?)(?=<|$)', re.DOTALL)
-        matches = pattern.findall(block)
-
-        # 创建一个字典来存储key-value对
-        block_dict = {key: value.strip() for key, value in matches}
-
-        self._cif = block_dict[cifColName].split('\n')
-        for key, value in block_dict.items():
-            if key != cifColName:
-                self._props[key] = value
+    
+    def GetGemmicif(self):
+        cif_str = '\n'.join(self._cif)
+        cif_parser = gemmi.cif.read_string(cif_str)
+        return gemmi.make_small_structure_from_block(cif_parser.sole_block())
 
     def WriteCif(self, filename):
         with open(filename, 'w') as f:
@@ -163,15 +193,22 @@ class CifBlock:
 if __name__ == '__main__':
     #df = LoadEcif('example/mb-jdft2d.ecif')
     #WriteEcif(df, 'output.ecif', properties=df.columns)
-    from pymatgen.core import Lattice
-    df = pd.DataFrame({
-        'ID': ['test1', 'test2'],
-        'CIF': [Structure(Lattice.cubic(4.225), ["Na"], [[0, 0, 0]]),
-                Structure(Lattice.cubic(3.61), ["Cu", "Cu", "Cu", "Cu"], [[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, 0.5]])
-                ],
-        'prop1': [1, 2],
-        'prop2': [3, 4]
-    })
+    #from pymatgen.core import Lattice
+    #df = pd.DataFrame({
+    #    'ID': ['test1', 'test2'],
+    #    'CIF': [Structure(Lattice.cubic(4.225), ["Na"], [[0, 0, 0]]),
+    #            Structure(Lattice.cubic(3.61), ["Cu", "Cu", "Cu", "Cu"], [[0, 0, 0], [0.5, 0.5, 0], [0.5, 0, 0.5], [0, 0.5, #0.5]])
+    #            ],
+    #    'prop1': [1, 2],
+    #    'prop2': [3, 4]
+    #})
+    #WriteEcif(df, 'test.ecif', properties=['prop1', 'prop2'])
+    #df = LoadEcif('test.ecif')
+    #WriteEcif(df, 'test2.ecif', properties=df.columns)
 
-    WriteEcif(df, 'test.ecif', properties=['prop1', 'prop2'])
-    df = LoadEcif('test.ecif')
+    #import cProfile
+    #cProfile.run('df = LoadEcif("matbench/matbench_jdft2d/test_fold_0.ecif", cifColName="structure")')
+    #df = LoadEcif("matbench/matbench_mp_e_form/train_fold_0.ecif", cifColName="structure", type='gemmi')
+    df = LoadEcif("matbench/matbench_jdft2d/train_fold_0.ecif", cifColName="structure", type='gemmi')
+    print(df)
+    #df

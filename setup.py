@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 setup(
     name='pyecif',
-    version='0.1.1',
+    version='0.1.2',
     packages=find_packages(),
     include_package_data=True,
     description='ECIF file format tools for Python.',
@@ -21,5 +21,6 @@ setup(
         'numpy>=1.18.5',
         'pandas>=2.0.0',
         'pymatgen>=2023.8.10',
+        'gemmi',
     ],
 )

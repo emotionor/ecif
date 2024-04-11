@@ -47,20 +47,28 @@ Below is a snapshot of our data frame (`df`). It contains the fields ID, exfolia
 
 | ID | exfoliation_en | CIF |
 | --- | --- | --- |
-| mb-jdft2d-001 | 63.593833 | [[1.49323138 3.32688405 7.26257785] Hf, [3.326... |
-| mb-jdft2d-002 | 134.86375 | [[1.85068084 4.37698238 6.93015769] As, [-1.63... |
-| mb-jdft2d-003 | 43.114667 | [[-1.23770919e-16  2.02133251e+00  1.19727954e... |
-| mb-jdft2d-004 | 240.715488 | [[2.39882726 2.39882726 2.53701553] In, [0.054... |
-| mb-jdft2d-005 | 67.442833 | [[ -1.50082215  -0.86650009 -19.85028757] Nb, ... |
+| mb-jdft2d-001 | 63.593833 |  <gemmi.SmallStructure: SrSbSe2F> |
+| mb-jdft2d-002 | 134.86375 |       <gemmi.SmallStructure: AgI> |
+| mb-jdft2d-003 | 43.114667 | <gemmi.SmallStructure: Mg(ReO4)2> |
+| mb-jdft2d-004 | 240.715488 |     <gemmi.SmallStructure: Si3H> |
+| mb-jdft2d-005 | 67.442833 |      <gemmi.SmallStructure: CoO2> |
 | ... | ... | ... |
-| mb-jdft2d-632 | 26.426545 | [[ -2.38592122   1.37751225 -13.178104  ] Co, ... |
-| mb-jdft2d-633 | 43.574286 | [[1.92920996 1.92920997 4.57868062] Ca, [1.929... |
-| mb-jdft2d-634 | 88.808659 | [[4.53578337 0.         3.14900225] Pd, [ 9.07... |
-| mb-jdft2d-635 | 132.26525 | [[4.41728901 2.2026463  1.81895292] Hg, [6.631... |
-| mb-jdft2d-636 | 63.564333 | [[ 0.70613488 -1.21109143  1.03195663] Co, [ 2... |
+| mb-jdft2d-632 | 26.426545 |    <gemmi.SmallStructure: HgBr2 |
+| mb-jdft2d-633 | 43.574286 |    <gemmi.SmallStructure: FeCl3 |
+| mb-jdft2d-634 | 88.808659 |    <gemmi.SmallStructure: HoBrO |
+| mb-jdft2d-635 | 132.26525 |    <gemmi.SmallStructure: GaHO2 |
+| mb-jdft2d-636 | 63.564333 |  <gemmi.SmallStructure: TaCoTe2 |
 
 
-To better understand the contents of the CIF field, we can look at the details of `df['CIF'][0]`. This is an example describing the position of the elements Hf, Si and Te in the crystal structure, which is the `pymatgen.core.Structure` class:
+The default is to use `gemmi` to load the data, one can also choose `pymatgen` to load the data.
+
+```python
+from pyecif import LoadEcif
+
+df = LoadEcif('output.ecif', cifColName='CIF', type='pymatgen')
+```
+
+To better understand the contents of the CIF field, the details of `df['CIF'][0]` is as below with `pymatgen`. This is an example describing the position of the elements Hf, Si and Te in the crystal structure, which is the `pymatgen.core.Structure` class:
 
 ```python
 Structure Summary
@@ -83,3 +91,6 @@ PeriodicSite: Te5 (Te) (1.493, 3.327, 1.652) [0.4072, 0.9072, 0.06049]
 # Matbench
 
 Matbench is a benchmark dataset for materials science. You can easily obtain the ECIF format of the Matbench dataset using the example script `scripts/get_matbench_jdft2d.py`.
+
+# Time cost
+Total time: 27.1109 s for 106201 structure (matbench_mp_e_form:train)
